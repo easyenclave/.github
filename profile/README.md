@@ -1,19 +1,47 @@
 # EasyEnclave
 
-**The app store for confidential computing.**
+**A generic runtime for sealed TDX VMs, and the things you can grow on top of it.**
 
-Deploy applications to Intel TDX trusted execution environments with source inspection, cryptographic attestation, and USD-native economics.
+EasyEnclave is the bare runtime: one static binary that runs as PID 1
+inside an Intel TDX confidential VM, exposes a unix-socket workload
+API, and stays out of everything else. No HTTP server, no networking,
+no database, no container runtime. Minimal attack surface, clean
+attestation surface.
 
-### Projects
+Other projects in this org layer up from there — DevOps Defender
+handles fleet + control plane + tunnels on top of easyenclave, and
+slopandmop is where composable workloads live.
 
-| Repo | Description |
-|------|-------------|
-| [easyenclave](https://github.com/easyenclave/easyenclave) | Control plane, agent, SDK, and app store for TDX enclaves |
-| [easydollar](https://github.com/easyenclave/easydollar) | The economic layer &mdash; earn by providing hardware, pay for compute, settle with smart contracts |
+## Projects
 
-### Links
+| Repo                                                  | Role                                                                                                                                              |
+|-------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| [easyenclave](https://github.com/easyenclave/easyenclave) | The PID-1 runtime. TDX attestation via configfs-tsm, workload lifecycle over a newline-JSON socket, image builds for GCP + local-TDX targets. |
+| [easydollar](https://github.com/easyenclave/easydollar)   | Economic layer for confidential compute (earn-by-providing-hardware, pay-for-compute, smart-contract settlement). See the whitepaper. Returning as orchestration-driven slop in slopandmop. |
 
-- [easyenclave.com](https://easyenclave.com) &mdash; Landing page
-- [app.easyenclave.com](https://app.easyenclave.com) &mdash; App store and API
-- [API Docs](https://app.easyenclave.com/docs) &mdash; OpenAPI reference
-- [EasyDollar Whitepaper](https://github.com/easyenclave/easydollar/blob/main/WHITEPAPER.md) &mdash; Economic model
+## How the pieces fit
+
+```
+            Intel TDX VM (hardware-sealed memory)
+             └── easyenclave (PID 1)
+                   ├── /var/lib/easyenclave/agent.sock  ← workload API
+                   └── workloads ─────────────────────────────
+                                                             │
+                                                             ▼
+                                            any of: dd-agent, ollama,
+                                            openclaw, your-own-slop,
+                                            easydollar (returning), …
+```
+
+- **[devopsdefender/dd](https://github.com/devopsdefender/dd)** runs
+  as one of those workloads. It registers the VM with a control plane,
+  provisions a Cloudflare tunnel, and exposes a dashboard + `/deploy`
+  API so owners can POST more slop at their fleet.
+- **[slopandmop/slopandmop](https://github.com/slopandmop/slopandmop)**
+  is the catalog of reference workloads — podman, ollama, openclaw
+  today. `easydollar` and `satsforcompute` return here as slop.
+
+## Links
+
+- [easyenclave.com](https://easyenclave.com) — landing page
+- [EasyDollar whitepaper](https://github.com/easyenclave/easydollar/blob/main/WHITEPAPER.md) — economic model
